@@ -1,0 +1,1218 @@
+<!-- control-tab.html (v2.1) -->
+
+<script>
+
+(function(){
+    var component_ID = {
+        type: "tab",
+        version: "2.1",
+        kind: "component",
+        name: "control-tab.html",
+        description: "local player controls.",
+    };
+})();
+
+</script>
+
+
+<div id="actions-holder" class="side-holder">
+
+    <style>
+
+        .action-btn { 
+            width:21%; 
+            padding:0.5rem 0; 
+        }
+
+        .action-btn + .action-btn { 
+            margin-left:0.5rem; 
+        }
+
+        .turn-cw, .turn-ccw { 
+            width:45%; 
+        }
+
+        .turn-cw + .turn-ccw { 
+            margin-left:0.5rem; 
+        }
+
+        .action-controls-output {
+            width:50px; outline:none;
+            color:#ffffff; border:none; 
+            background-color:rgba(255,255,255,0);
+            font-weight:bold; font-size:1em; 
+            text-align:right; font-family:Arial;
+        }
+
+        #turn-ctrl-slider, 
+        #camera-offset-slider, 
+        #camera-radius-slider {
+            display:inline; 
+            width:80%; 
+            vertical-align:-5px;
+        }
+
+        label { margin-bottom: 0px; }
+
+        .step-output { width:42px; }
+
+        h4.helpers-header,
+        .helpers-header h4 {
+            cursor:pointer; 
+        }
+
+    </style>
+
+    <!-- ACTION CONTROLS -->
+
+    <h4 class="helpers-header action-controls-header">Action Controls:</h4>
+
+    <div id="action-controls-panel">
+
+        <div class="slider-row" style="width:100%;display:inline-block;text-align:center;margin-bottom:10px;">
+            <div class="btn btn-danger btn-white-outline action-btn animation-control" id="idle">idle</div>
+            <div class="btn btn-success btn-white-outline action-btn animation-control" id="walk">walk</div>
+            <div class="btn btn-success btn-white-outline action-btn animation-control" id="run">run</div>
+            <div class="btn btn-info btn-white-outline action-btn animation-control" id="jump">jump</div>
+        </div>
+
+        <h4 class="helpers-header direction-controls-header">Direction Controls:</h4>
+
+        <div class="slider-row" style="width:100%;display:inline-block;text-align:center;margin-bottom:10px;">
+            <div class="btn btn-primary btn-white-outline action-btn direction-control" id="left">left</div>
+            <div class="btn btn-primary btn-white-outline action-btn direction-control" id="front">front</div>
+            <div class="btn btn-primary btn-white-outline action-btn direction-control" id="back">back</div>
+            <div class="btn btn-primary btn-white-outline action-btn direction-control" id="right">right</div>
+        </div>
+
+    </div>
+
+    <!-- CAMERA CONTROLS -->
+
+    <h4 class="helpers-header camera-controls-header">Camera Controls:</h4>
+
+    <div id="camera-controls-panel" class="slider-row" style="width:100%;margin-bottom:10px;display:inline-block">
+        <li>
+            <label title="Camera vertial offset">Vertical offset:</label>
+            <input type="range" id="camera-offset-slider" min="0" max="25" value="12" step="1">
+            <input type="number" id="camera-offset-output" class="action-controls-output" step="1">
+        </li>
+        <li>
+            <label title="Camera radius">Camera distance:</label>
+            <input type="range" id="camera-radius-slider" min="6" max="64" value="29" step="1">
+            <input type="number" id="camera-radius-output" class="action-controls-output" step="1">
+        </li>
+        <li>
+            <label title="hold pressed to turn">Avatar direction:</label>
+            <input type="range" id="turn-ctrl-slider" min="0" max="360" value="180" step="1">
+            <input type="number" id="turn-ctrl-output" class="action-controls-output" value="180" step="1">
+        </li>
+
+    </div>
+
+</div>
+
+<script>
+
+(function(){
+
+    const actionHeaderSelector = ".action-controls-header";
+    const actionControlsSelector = "#action-controls-panel"
+
+    $(actionHeaderSelector).on("dblclick", function(){
+        var selector = actionControlsSelector;
+        if ( $(selector).css("display") == "none" ) {
+            $(selector).slideDown();
+        } else {
+            $(selector).slideUp();
+        }
+    });
+
+    const cameraHeaderSelector = ".camera-controls-header";
+    const cameraControlsSelector = "#camera-controls-panel";
+
+    $(cameraHeaderSelector).on("dblclick", function(){
+        var selector = cameraControlsSelector;
+        if ( $(selector).css("display") == "none" ) {
+            $(selector).slideDown();
+        } else {
+            $(selector).slideUp();
+        }
+    });
+
+})();
+
+</script>
+
+<script>
+
+    //SceneSocketId;       // (global, dynamic);
+    //SceneChannelName;    // (global, dynamic);
+    //localPlayerChannel;  // (global, dynamic);
+
+    //const SceneWindow = viewer.contentWindow;
+    //const joystick1 = viewer.contentWindow.joystick1;
+    //const cameraControls = viewer.contentWindow.cameraControls;
+    //const keyInputControls = viewer.contentWindow.keyInputControls;
+    //const AnimationPanelControls = viewer.contentWindow.AnimationPanelControls;
+
+    $(viewer.contentWindow).on("load", function(){
+
+        const viewer = document.getElementById( "viewer" );
+        const joystick1 = viewer.contentWindow.joystick1;
+
+        const idleButtonSelector  = "#idle";
+        const walkButtonSelector  = "#walk";
+        const runButtonSelector   = "#run";
+        const jumpButtonSelector  = "#jump";
+        const frontButtonSelector = "#front";
+        const backButtonSelector  = "#back";
+        const leftButtonSelector  = "#left";
+        const rightButtonSelector = "#right";
+        const actionButtonSelector = ".action-btn";
+
+        const turnCtrlOutputSelector = "#turn-ctrl-output";
+        const turnCtrlSliderSelector = "#turn-ctrl-slider";
+        const actionControlsSelector = "#action-controls-panel";
+
+        const cameraOffsetOutputSelector = "#camera-offset-output";
+        const cameraOffsetSliderSelector = "#camera-offset-slider";
+        const cameraRadiusSliderSelector = "#camera-radius-slider";
+        const cameraRadiusOutputSelector = "#camera-radius-output";
+
+        const runButton   = document.getElementById("run");
+        const idleButton  = document.getElementById("idle");
+        const walkButton  = document.getElementById("walk");
+        const jumpButton  = document.getElementById("jump");
+        const backButton  = document.getElementById("back");
+        const leftButton  = document.getElementById("left");
+        const rightButton = document.getElementById("right");
+        const frontButton = document.getElementById("front");
+
+        viewer.contentWindow.directionSlider = document.getElementById("turn-ctrl-slider");
+        viewer.contentWindow.directionOutput = document.getElementById("turn-ctrl-output");
+
+        function updateActionButtonsActive(){
+
+            runButton.active = localPlayer.controller.isRunning && !localPlayer.controller.isWalking;
+            walkButton.active = localPlayer.controller.isRunning && localPlayer.controller.isWalking;
+
+            try {
+
+            //  Update menu action elements.
+                nameCategoryMap["Run"].element.active = localPlayer.controller.isRunning && !localPlayer.controller.isWalking;
+                nameCategoryMap["Walk"].element.active = localPlayer.controller.isRunning && localPlayer.controller.isWalking;
+
+            }
+
+            catch(err){;}
+
+        }
+
+    //  Animation control buttons.
+
+        $(idleButton).on("click", function(){
+            var data = "/action/idle";
+            var channelName = localPlayerChannel;
+            socket.publish(channelName, data, function(err){
+                if (err) console.error(err);
+                updateActionButtonsActive();
+            });
+        });
+
+        $(walkButton).on("click", function(){
+            this.active = !this.active;
+
+            if ( this.active ) 
+                var data = "/action/walk";
+            else 
+                var data = "/action/idle";
+
+            var channelName = localPlayerChannel;
+            socket.publish(channelName, data, function(err){
+                if (err) console.error(err);
+                updateActionButtonsActive();
+            });
+
+        });
+
+        $(runButton).on("click", function(){
+            this.active = !this.active;
+
+            if ( this.active ) 
+                var data = "/action/run";
+            else 
+                var data = "/action/idle";
+
+            var channelName = localPlayerChannel;
+            socket.publish(channelName, data, function(err){
+                if (err) console.error(err);
+                updateActionButtonsActive();
+            });
+
+        });
+
+        $(jumpButton).one("click", jumpAction);
+
+        function jumpAction(){
+            var data = "/action/jump";
+            var channelName = localPlayerChannel;
+            socket.publish(channelName, data, function(err){
+                if (err) console.error(err);
+                $(jumpButton).one("click", jumpAction);
+            });
+        }
+
+
+    //  Direction control buttons.
+
+        $(frontButtonSelector).on("click", function(){
+            var data = "/turn/front";
+            var channel = localPlayerChannel;
+            socket.publish(channel, data);
+        });
+
+        $(backButtonSelector).on("click", function(){
+            var data = "/turn/back";
+            var channel = localPlayerChannel;
+            socket.publish(channel, data);
+        });
+
+        $(leftButtonSelector).on("click", function(){
+            var data = "/turn/left";
+            var channel = localPlayerChannel;
+            socket.publish(channel, data);
+        });
+
+        $(rightButtonSelector).on("click", function(){
+            var data = "/turn/right";
+            var channel = localPlayerChannel;
+            socket.publish(channel, data);
+        });
+
+
+    //  Update direction output value.
+
+        $(this.joystick1).on("update", function(){
+            $(turnCtrlSliderSelector).val( degIntDirection() );
+            $(turnCtrlOutputSelector).val( degIntDirection() );
+        });
+
+        $(this.keyInputControls).on( "movekeyon movekeyoff movekeychange jumpkeypress", function(){
+            $(turnCtrlSliderSelector).val( degIntDirection() );
+            $(turnCtrlOutputSelector).val( degIntDirection() );
+        });
+
+
+    //  Update action buttons status.
+
+        $(joystick1).on( "active disactive", function () {
+            if ( $(actionControlsSelector).length == 0 ) return;
+            $(walkButtonSelector).get(0).active = localPlayer.controller.isRunning && localPlayer.controller.isWalking;
+            $(runButtonSelector).get(0).active = localPlayer.controller.isRunning && !localPlayer.controller.isWalking;
+        });
+
+        $(keyInputControls).on( "movekeyon movekeyoff movekeychange jumpkeypress", function(){
+            if ( $(actionControlsSelector).length == 0 ) return;
+            $(walkButtonSelector).get(0).active = localPlayer.controller.isRunning && localPlayer.controller.isWalking;
+            $(runButtonSelector).get(0).active = localPlayer.controller.isRunning && !localPlayer.controller.isWalking;
+        });
+
+        $(localPlayer.controller).on( "startIdling startRunning startJumping endJumping", function(){
+            if ( $(actionControlsSelector).length == 0 ) return;
+            $(walkButtonSelector).get(0).active = localPlayer.controller.isRunning && localPlayer.controller.isWalking;
+            $(runButtonSelector).get(0).active = localPlayer.controller.isRunning && !localPlayer.controller.isWalking;
+        });
+
+
+    //  Avatar static turn slider.
+
+        $(turnCtrlSliderSelector).val( degIntDirection() );
+        $(turnCtrlSliderSelector).on("input", function(){
+            var angle = THREE.Math.degToRad( parseInt(this.value) ); // number rad.
+            localPlayer.controller.direction = angle;
+            $(turnCtrlOutputSelector).val( this.value );
+        });
+
+
+    //  Avatar turn output.
+
+        $(turnCtrlOutputSelector).val( degIntDirection() );
+        $(turnCtrlOutputSelector).on("mousedown", function(){
+            this.value = THREE.Math.radToDeg( localPlayer.controller.direction ).toFixed(0); // string deg.
+        });
+
+        $(turnCtrlOutputSelector).on("input", function(){
+            if ( isNaN( this.value ) ) return;
+            this.value %= 360;
+            var angle = THREE.Math.degToRad( parseInt(this.value) ); // number rad.
+            localPlayer.controller.direction = angle;
+            $(turnCtrlSliderSelector).val( mod(this.value, 360) );
+            function mod( a, n ) { return ( a % n + n ) % n; };
+        });
+
+
+    //  Camera vertical offset controls.
+
+        $(cameraOffsetSliderSelector).attr({ min: 0, max: 24, step: 1 });
+        $(cameraOffsetSliderSelector).val( cameraControls.offset.y );
+        $(cameraOffsetOutputSelector).val( cameraControls.offset.y );
+
+        $(cameraOffsetSliderSelector).on("input", function(){
+            cameraControls.offset.y = parseInt( this.value );
+            $(cameraOffsetOutputSelector).val( cameraControls.offset.y );
+        });
+
+        $(cameraOffsetOutputSelector).on("input", function(){
+            if ( !cameraControls ) return;
+            if ( isNaN( this.value ) ) return;
+            cameraControls.offset.y = parseFloat( this.value );
+            $(cameraOffsetSliderSelector).val( cameraControls.offset.y );
+        });
+
+
+    //  Camera radius controls.
+
+        $(cameraRadiusSliderSelector).attr({
+            min: cameraControls.minRadius,
+            max: cameraControls.maxRadius,
+            step: 1,
+        });
+
+        $(cameraRadiusSliderSelector).val( cameraControls.radius );
+        $(cameraRadiusOutputSelector).val( cameraControls.radius );
+
+        $(cameraRadiusSliderSelector).on("input", function(){
+            cameraControls.radius = this.value;
+            $(cameraRadiusOutputSelector).val( cameraControls.radius );
+        });
+
+        $(cameraRadiusOutputSelector).on("input", function(){
+            cameraControls.radius = this.value;
+            $(cameraRadiusSliderSelector).val( cameraControls.radius );
+        });
+
+        $(viewer.contentWindow).on( "wheel", function onMouseWheel(e) {
+            if ( !cameraControls ) return;
+            $(cameraRadiusSliderSelector).val( cameraControls.radius );
+            $(cameraRadiusOutputSelector).val( cameraControls.radius );
+        });
+
+
+
+        localPlayer.outfit.refresh();             // !important
+        localPlayer.controller.movementSpeed = 0; // !important
+
+
+
+        function getDeltaAngle( current, target ) {
+            var a = mod( ( current - target ), 2 * Math.PI );
+            var b = mod( ( target - current ), 2 * Math.PI );
+            return a < b ? -a : b;
+        }
+
+        function degIntDirection(){
+            return parseInt( THREE.Math.radToDeg( localPlayer.controller.direction ) ) % 360;
+        }
+
+        function updateDirectionOutputValue(){
+            $(turnCtrlOutputSelector).val( degIntDirection() );
+        }
+
+        function mod( a, n ) { return ( a % n + n ) % n;  }
+
+    });
+
+</script>
+
+
+
+
+        <!-- SNAPSHOT BUTTON -->
+
+
+<div id="snapshot-holder" class="side-holder">
+
+    <style>
+
+        #crop-button {
+            position:absolute;
+            bottom: 0px;
+            right: 0px;
+        }
+
+        #exit-button {
+            position:absolute;
+            bottom: 0px;
+            left: 0px;
+        }
+        
+        .bootbox-body pre {
+            padding:0px;
+            background:none;
+            border:none;
+            border-radius:unset;
+            max-width:300px;
+            max-height:100px;
+        }
+
+    </style>
+
+    <h4 class="helpers-header">Snapshots:</h4>
+    <div id="snapshot-crop-button" class="form-control btn btn-info btn-white-outline gradient-btn">Take snapshot</div>
+
+</div>
+
+<hr/>
+
+<script>
+
+(function(){
+
+    const snapshotCropButtonSelector = "#snapshot-crop-button";
+    const snapshotSpinner = `<img class="snapshot-spinner" src="/img/loading.gif" style="width:32px;height:auto;">`;
+
+    $(snapshotCropButtonSelector).on("click", function (){
+
+        var isVip = false;
+        var viewer = document.getElementById( "viewer" );
+
+        if ( isMobile ) {
+
+            var width  = $(viewer.contentWindow).width();
+            var height = $(viewer.contentWindow).height();
+
+            var options = {};
+            options.setSelect = [ 0, 0, width, height ];
+            options.minSize = [ width, height ];
+            options.maxSize = [ width, height ];
+            options.onChange = function(coords){};
+            options.onSelect = function(coords){};
+            options.onRelease = function(){};
+
+            $(viewer.contentWindow.renderer.domElement).Jcrop(options, function(){
+
+                var jcropper = this;
+                var renderer = viewer.contentWindow.renderer;
+                new Promise( function(resolve, reject){
+                    var selection = jcropper.tellSelect();
+                    var scaletion = jcropper.tellScaled();
+                    var img = renderer.domElement;
+                    var sourceX = selection.x;
+                    var sourceY = selection.y;
+                    var sourceWidth = img.width;
+                    var sourceHeight = img.height;
+                    var x = 0, y = 0;
+                    var width = $(viewer.contentWindow).width();
+                    var height = $(viewer.contentWindow).height();
+                    var canvas = document.createElement( "canvas" );
+                    var ctx = canvas.getContext("2d");
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(
+                        img,
+                        sourceX,
+                        sourceY,
+                        sourceWidth,
+                        sourceHeight,
+                        x, y,
+                        width,
+                        height
+                    );
+
+                    resolve( canvas );
+
+                }).then(function( canvas ){
+
+                    jcropper.destroy();
+                    var element = viewer.contentWindow.renderer.domElement;
+                    var container = viewer.contentDocument.getElementById("scene-container");
+                    $(container).append(element);
+                //  $("img#loading").removeClass("hidden");
+                    return canvas.toDataURL("image/jpeg");
+
+                }).then(function( snapshotdata ){
+
+                    if ( !isVip ) {
+                        var watermarkUrl = "https://i.imgur.com/MrEaeSc.png";
+                        return watermarkedSnapshot( snapshotdata, watermarkUrl );
+                    } else {
+                        return snapshotdata
+                    }
+
+                }).then(function( snapshotdata ){
+
+                    saveSnapshotDialog( snapshotdata );
+
+                });
+
+            });
+
+        } else {
+
+            var width  = 375; // 420;
+            var height = 570; // 570;
+
+            var renderer = viewer.contentWindow.renderer;
+
+            var options = {
+                aspectRatio: width / height,
+                setSelect: [
+                    (renderer.domElement.width * 0.5)  - (width * 0.5),
+                    (renderer.domElement.height * 0.5) - (height * 0.5),
+                    (renderer.domElement.width * 0.5)  + (width * 0.5),
+                    (renderer.domElement.height * 0.5) + (height * 0.5),
+                ],
+                minSize: [width, height],
+                maxSize: [width, height],
+                onChange: function(coords){},
+                onSelect: function(coords){},
+                onRelease: function(){
+                    this.exit();
+                },
+            };
+
+            $(viewer.contentWindow.renderer.domElement).Jcrop(options, function(){
+
+                var sceneContainer = viewer.contentDocument.getElementById("scene-container");
+                var jcrop_tracker = $(sceneContainer).find(".jcrop-tracker").get(0);
+                $(jcrop_tracker).append(`<div id="crop-button" class="btn btn-primary">Crop</div>`);
+
+                this.exit = exit;
+                this.crop = crop;
+                var jcropper = this;
+
+                $(sceneContainer).find("#crop-button").on( "click", function(){
+
+                    jcropper.crop(renderer.domElement).then(function( canvas ){
+
+                        jcropper.exit();
+                        $("img#loading").removeClass("hidden");
+                        return canvas.toDataURL("image/jpeg");
+
+                    }).then(function( snapshotdata ){
+
+                        if ( !isVip ) {
+                            var watermarkUrl = "https://i.imgur.com/MrEaeSc.png";
+                            return watermarkedSnapshot( snapshotdata, watermarkUrl );
+                        } else {
+                            return snapshotdata
+                        }
+
+                    }).then(function( snapshotdata ){
+                        saveSnapshotDialog( snapshotdata );
+                    });
+
+                });
+
+                function crop(img){
+                    return new Promise( function(resolve, reject){
+                        var selection = jcropper.tellSelect();
+                        var scaletion = jcropper.tellScaled();
+                        var sourceX = selection.x;
+                        var sourceY = selection.y;
+                        var sourceWidth = selection.w;
+                        var sourceHeight = selection.h;
+                        var x = 0, y = 0;
+                        var width = selection.w;
+                        var height = selection.h;
+                        var canvas = document.createElement( "canvas" );
+                        var ctx = canvas.getContext("2d");
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        ctx.drawImage(
+                            img,
+                            sourceX,
+                            sourceY,
+                            sourceWidth,
+                            sourceHeight,
+                            x, y,
+                            width,
+                            height
+                        );
+
+                        resolve( canvas );
+                    });
+                }
+
+                function exit(){
+                    this.destroy();
+                    $(viewer.contentDocument.getElementById("scene-container")).append(renderer.domElement);
+                };
+
+            });
+
+        }
+
+    });
+
+    function watermarkedSnapshot( dataurl, wmUrl ){
+        return new Promise( function(resolve, reject){
+            var wm = new Watermark();
+            var wmOptions = {
+                position: [1,1],
+                scale:   0.5,
+                opacity: 1.0,
+            };
+            wm.setPicture( dataurl );
+            wm.addWatermark(wmUrl, wmOptions);
+            wm.render( function(){
+                debugMode && console.log( "watermark.getImgs:", wm.getImgs( "image/jpeg", 0.9 ) );
+                resolve( wm.getDataUrls( "image/jpeg", 0.9 )[0] );
+            });
+        });
+    }
+
+    function saveSnapshotDialog( data ){
+        $(".snapshot-spinner").remove();
+        var dialog = bootbox.dialog({
+            className: "middle",
+            closeButton: false,
+            message: `<img src="${data}" id="snapshot-preview" class="img-thumbnail" style="width:325px;">`,
+            buttons: {
+                cancel: {
+                    label: 'Cancel',
+                    className: 'btn-default pull-left',
+                    callback: function(){
+                        $("img#loading").addClass("hidden");
+                    }
+                },
+                imgur: {
+                    label: 'Upload',
+                    className: 'btn-success',
+                    callback: function(){
+                        var options = {};
+                        uploadBase64( options ).then(function( imgurUrl ){
+                            successCallback( imgurUrl );
+                            $("img#loading").addClass("hidden");
+                        });
+                    }
+                },
+                save: {
+                    label: 'Save',
+                    className: 'btn-primary',
+                    callback:  function(){
+                        saveToDesktop();
+                    }
+                },
+            }
+
+        });
+
+        function saveToDesktop(){
+            return new Promise( function(resolve, reject){
+                data.replace("image/jpeg", "image/octet-stream");
+                var a = document.createElement("a");
+                $(a).one("click", function(){
+                    resolve();
+                    $(this).remove();
+                });
+                a.download = ["snapshot", Date.now().toString(36)].join("-") + ".jpg";
+                a.href = data;
+                a.click();
+            });
+        }
+
+        function dataURLtoBlob(dataurl) {
+            var arr = dataurl.split(','),
+                mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]),
+                n = bstr.length,
+                u8arr = new Uint8Array(n);
+            while(n--){
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], {type:mime});
+        }
+
+        function uploadBase64( options ){
+
+        //  $("img#loading").removeClass("hidden");
+
+            var type = "image/jpeg";
+            var data = $("#snapshot-preview").attr("src").replace("data:image/jpeg;base64,", "");
+            var name = options.name || Date.now().toString(36);
+            var filename = name + ".jpg"
+            var title = options.title || "anywhere3d snapshot";
+            var description = options.description || "Avatar snapshot direct from http://anywhere3d.com #anywhere3d";
+
+            return new Promise( function(resolve, reject){
+
+                var formdata = new FormData();
+                formdata.append("type",  type);
+                formdata.append("image", data);
+                formdata.append("name",  filename);
+                formdata.append("title", title);
+                formdata.append("description", description);
+                var clientid = "95e1ecaf14ca5e6";
+                var endpoint = "https://api.imgur.com/3/image";
+                var xhttp = new XMLHttpRequest();
+                xhttp.open('POST', endpoint, true);
+                xhttp.setRequestHeader('Authorization', 'Client-ID ' + clientid);
+                xhttp.onreadystatechange = function () {
+                    if (this.readyState === 4) {
+                        var response = "";
+                        if (this.status >= 200 && this.status < 300) {
+                            response = JSON.parse(this.responseText);
+                            resolve( response ); // resolve promise.
+                        } else {
+                            var err = JSON.parse(this.responseText).data.error;
+                            console.error( err.type, err );
+                            var errmsg = `<h2 style="margin:0;">${err.type}</h2><br>${err.message.replace(". ", ".<br>")}`;
+                            return bootboxErrorAlert(errmsg);
+                        //  throw Error( err );
+                        }
+                    }
+                };
+
+                xhttp.send(formdata);
+                xhttp = null;
+
+            }).then( function( response ){
+
+                var url = "/gallery/insert";
+                var data = response.data;
+
+            //  Add to cache.
+            //  w3.getHttpData(data.link, function(){});
+                caches.open("gallery").then(function(cache){
+                    cache.add(data.link);
+                });
+
+            //  Upload to gallery.
+
+                $.ajax({
+
+                    url: url,
+                    data: data,
+                    method: "POST",
+
+                }).then( function( results ){
+
+                    $("img#loading").addClass("hidden");
+                    return results.success;
+
+                }).done( function( success ){
+
+                    data._id = success.insertedIds[0];
+
+                    db.open(function(err, database){
+                        if (err) console.error( err );
+                    }).then( function(){
+
+                        var collection = db.collection("gallery");
+                        collection.insert( data, function(err){
+                            if (err) throw err;
+                        }).catch(function (err) {
+                            throw err;
+                        });
+
+                    }).catch(function (err) {
+                        throw err;
+                    });
+
+                }).fail(function(response){
+
+                    debugMode && console.log(response);
+                    failureCallback(response.responseText);
+                });
+
+                return data.link;
+
+            }).catch(function (err) {
+            //  $("img#loading").addClass("hidden");
+                console.error("SnapshotUploadError:", err);
+            });
+
+        }
+
+        function successCallback( url ){
+            bootbox.confirm({
+                size: "small",
+                className: "middle",
+                title: `<div class="alert-icon icon-success"></div><b>Snapshot uploaded successfully.</b>`,
+                message: `<b>url: </b><span><a href="${url}" target="_blank">${url}</a></span>`,
+                buttons: {
+                    cancel: {
+                        label: 'Close',
+                        className: 'btn-default',
+                    },
+                    confirm: {
+                        label: 'Open image',
+                        className: 'btn-primary',
+                    }
+                },
+                callback: function ( result ) {
+                    if ( result ) window.open( url );
+                }
+            });
+        }
+
+        function failureCallback( html ){
+            bootbox.dialog({
+                size: "small",
+                className: "middle",
+                title: `<div class="alert-icon icon-error"></div><h2 style="margin:auto;">Error!</h2>`,
+                message: html,
+                buttons: {
+                    cancel: {
+                        label: 'Close',
+                        className: 'btn-default',
+                    },
+                }
+            });
+        }
+
+
+    }
+
+})();
+
+</script>
+
+
+
+
+
+        <!-- BACKGROUND COLOR -->
+
+
+<div id="scene-background-holder" class="side-holder">
+
+    <style>
+        #background-colorpicker > div.sp-container,
+        #background-colorpicker > div.sp-container > div.sp-picker-container { background:none; border:none; width:100% }
+        #background-colorpicker > div.sp-container > div.sp-picker-container > div.sp-input-container  { width:70px; }
+        #background-colorpicker > div.sp-container > div.sp-picker-container > div.sp-input-container > input.sp-input { color:#fff }
+
+        @media (max-device-width: 480px){
+            .sp-hue { left: 85%; }
+        }
+
+    </style>
+
+    <div id="background-colorpicker">
+
+        <h4 class="helpers-header background-color-header">Background color:</h4>
+
+        <input type="hidden" id="sp-scene-background">
+
+    </div>
+
+</div>
+
+<hr/>
+
+<script>
+
+(function(){
+
+    const backgroundHeaderSelector = ".background-color-header";
+    const spectrumContainerSelector = "#background-colorpicker .sp-container";
+
+    $(backgroundHeaderSelector).on("dblclick", function(){
+        var selector = spectrumContainerSelector;
+        if ( $(selector).css("display") == "none" ) {
+            $(selector).slideDown();
+        } else {
+            $(selector).slideUp();
+        }
+    });
+
+})();
+
+(function(){
+
+//  Spectrum Colorpickers.js
+
+    const SceneContainerSelector = "#scene-container";
+    const spectrumBackgroundSelector = "#sp-scene-background";
+
+    var viewer = document.getElementById( "viewer" );
+
+    $(spectrumBackgroundSelector).spectrum({
+        preferredFormat: "hex",
+        color: "#000000",
+        flat: true,
+        showInput: true,
+        showInitial: true,
+        showButtons: false,
+        allowEmpty: false,
+        move: function(color) {
+            if ( !viewer.contentWindow.renderer ) return;
+            var renderer = viewer.contentWindow.renderer;
+            var hex = color.toString("hex").replace(/#/, "0x");
+            renderer.setClearColor( renderer.getClearColor().setHex(hex) );
+        }
+    });
+
+    $(spectrumBackgroundSelector).on("dragstop.spectrum", function(e, color) {
+        if ( !viewer.contentWindow.renderer) {
+            $(this).spectrum( "set", "#000000" );
+            return;
+        }
+    });
+
+//  Colorpicker update.
+
+    (function (){
+        var renderer = viewer.contentWindow.renderer;
+        if ( renderer && renderer.getClearColor() ) {
+            var hexString = "#" + renderer.getClearColor().getHexString();
+            $(spectrumBackgroundSelector).spectrum( "set", hexString );
+        }
+    })();
+
+})();
+
+</script>
+
+
+
+
+
+
+
+
+        <!-- DISPLAY HELPERS -->
+
+
+<style>
+
+    .helper a, 
+    .display-helper a { 
+        color:#fff; 
+        font: bold 16px Arial;
+        cursor: pointer;
+        line-height: 1.5em;
+        text-decoration: none;
+    }
+
+    .helper:focus { outline:none; }
+    .helpers a:focus { outline:none; }
+    .helpers-header h4 { cursor:pointer; }
+
+</style>
+
+<div class="helpers-header display-header">
+    <h4>Display helpers:</h4>
+</div>
+
+<div id="display-helpers">
+
+    <li id="ground" class="display-helper"><a>Show ground</a></li>
+    <li id="ground-helper" class="display-helper"><a>Hide ground helper</a></li>
+    <li id="origin-helper" class="display-helper"><a>Hide origins helper</a></li>
+    <li id="axis-helper" class="display-helper"><a>Hide axis helper</a></li>
+    <li id="player-helper" class="display-helper"><a>Show Player helper</a></li>
+    <li id="joysticks-helper" class="display-helper"><a>Hide joysticks</a></li>
+
+</div>
+
+<hr/>
+
+<script>
+
+(function(){
+
+    const displayHeaderSelector = ".display-header";
+    const helpersHeaderSelector = ".helpers-header";
+    const displayHelpersSelector = "#display-helpers";
+
+    $(displayHeaderSelector).on("dblclick", function(){
+        var item = $(displayHelpersSelector).get(0);
+        if ( $(item).css("display") == "none" ) {
+            $(item).slideDown();
+        } else {
+            $(item).slideUp();
+        }
+    });
+
+//  Using Signals.
+
+    var Signal = signals.Signal;
+    var displayHelperClicked = new Signal();
+    var JoystickHelperClicked = new Signal();
+
+//  Signal handlers.
+
+    displayHelperClicked.add( function(element){
+
+        element.target.visible = !element.target.visible;
+
+        if (element.target.visible)
+            var text = $(element).find("a").text().replace("Show", "Hide");
+        else
+            var text = $(element).find("a").text().replace("Hide", "Show");
+
+        $(element).find("a").text( text );
+
+    });
+
+    JoystickHelperClicked.add( function(element){
+
+        element.value = !element.value;
+
+        if ( element.value ) {
+            element.target.removeClass("hidden");
+            var text = $(element).find("a").text().replace("Show", "Hide");
+        } else {
+            element.target.addClass("hidden");
+            var text = $(element).find("a").text().replace("Hide", "Show");
+        }
+
+        $(element).find("a").text( text );
+
+    });
+
+    var viewer = document.getElementById( "viewer" );
+
+    $(viewer.contentWindow).on("load", function(){
+
+        //  "this" is the "viewer.contentWindow".
+
+    //  Define display helpers targets.
+        document.getElementById("ground").target = this.ground;
+        document.getElementById("axis-helper").target = this.axisCustomHelper;
+        document.getElementById("ground-helper").target = this.groundHelper;
+        document.getElementById("origin-helper").target = this.axisOriginHelper;
+        document.getElementById("player-helper").target = this.localPlayer.holder;
+
+    //  Dispatch signal events.
+
+        $("#ground, #ground-helper, #origin-helper, #axis-helper, #player-helper").on("click", function(){
+            displayHelperClicked.dispatch( this );
+        });
+
+    //  Joystic display helper.
+
+        document.getElementById("joysticks-helper").value = true;
+        document.getElementById("joysticks-helper").target = $(this.document).find(".joystick-controls");
+    //  debugMode && console.log( document.getElementById("joysticks-helper").target );
+
+    //  Dispatch signal events.
+
+        $("#joysticks-helper").on("click", function(){
+            JoystickHelperClicked.dispatch( this );
+        });
+
+    });
+
+})();
+
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+/*
+//  ( moved to scene.html )
+
+    function turnTo( rad, immediate ){
+        var deltaAngle = getDeltaAngle( localPlayer.controller.direction, rad );
+
+        return function turn(){
+            windowAnimationFrameRequestID = requestAnimationFrame( turn );
+
+            if ( isNaN( deltaAngle ) ) {
+                cancelAnimationFrame( windowAnimationFrameRequestID );
+                localPlayer.outfit.update(); return;
+            }
+            if ( immediate ) {
+                localPlayer.controller.direction += deltaAngle;
+                cancelAnimationFrame( windowAnimationFrameRequestID );
+                localPlayer.outfit.update(); return;
+            }
+            if ( Math.abs( deltaAngle ) < 0.000017453292519943296  ) {
+                cancelAnimationFrame( windowAnimationFrameRequestID );
+                var deg = parseInt( THREE.Math.radToDeg(localPlayer.controller.direction) );
+                $(turnCtrlOutputSelector).val( mod(deg, 360) );
+                $(turnCtrlSliderSelector).val( mod(deg, 360) );
+                localPlayer.outfit.update(); return;
+            }
+
+            localPlayer.controller.direction = mod( localPlayer.controller.direction += ( deltaAngle *= 0.5 ), 2 * Math.PI );
+        }
+
+    }
+*/
+</script>
+
+<script>
+
+/*
+    $(idleButton).on("click", function(){
+        runButton.active = localPlayer.controller.isRunning && !localPlayer.controller.isWalking;
+        walkButton.active = localPlayer.controller.isRunning && localPlayer.controller.isWalking;
+    });
+
+    $(walkButton).on("click", function(){
+        runButton.active = localPlayer.controller.isRunning && !localPlayer.controller.isWalking;
+        walkButton.active = localPlayer.controller.isRunning && localPlayer.controller.isWalking;
+    });
+
+    $(runButton).on("click", function(){
+        runButton.active = localPlayer.controller.isRunning && !localPlayer.controller.isWalking;
+        walkButton.active = localPlayer.controller.isRunning && localPlayer.controller.isWalking;
+    });
+
+    $(jumpButton).on("click", function(){
+        runButton.active = localPlayer.controller.isRunning && !localPlayer.controller.isWalking;
+        walkButton.active = localPlayer.controller.isRunning && localPlayer.controller.isWalking;
+    });
+*/
+
+/*
+    //  Update action buttons status.
+
+        $(`#idle, #walk, #run, #jump`).on("click", function(){
+            runButton.active = localPlayer.controller.isRunning && !localPlayer.controller.isWalking;
+            walkButton.active = localPlayer.controller.isRunning && localPlayer.controller.isWalking;
+        });
+
+
+    //  Animation controls active.
+
+    //    $(actionButtonSelector).on("click", function(){
+    //        AnimationPanelControls.isActive = localPlayer.controller.isRunning;
+    //        $(turnCtrlOutputSelector).val( degIntDirection() );  // string deg.
+    //    });
+
+
+    //  Handle animation panel controls updating.
+        $(idleButton).on("click", function(){
+            $(AnimationPanelControls).removeClass("update");                         // disactivate updating.
+            viewer.contentWindow.$updates = $(viewer.contentWindow).find(".update"); // continue updating.
+        });
+
+        $(walkButton).on("click", function(){
+            if ( this.active ) $(AnimationPanelControls).addClass("update");         // activate updating.
+            else $(AnimationPanelControls).removeClass("update");                    // disactivate updating.
+            viewer.contentWindow.$updates = $(viewer.contentWindow).find(".update"); // continue updating.
+        });
+
+        $(runButton).on("click", function(){
+            if ( this.active ) $(AnimationPanelControls).addClass("update");         // activate updating.
+            else $(AnimationPanelControls).removeClass("update");                    // disactivate updating.
+            viewer.contentWindow.$updates = $(viewer.contentWindow).find(".update"); // continue updating.
+        });
+*/
+
+</script>
