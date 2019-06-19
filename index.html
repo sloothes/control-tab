@@ -265,6 +265,22 @@
 
     //  Update direction output value.
 
+        function degIntDirection(){
+            return parseInt( THREE.Math.radToDeg( viewer.contentWindow.localPlayer.controller.direction ) ) % 360;
+        }
+
+        function getDeltaAngle( current, target ) {
+            var a = mod( ( current - target ), 2 * Math.PI );
+            var b = mod( ( target - current ), 2 * Math.PI );
+            return a < b ? -a : b;
+        }
+
+        function updateDirectionOutputValue(){
+            $(turnCtrlOutputSelector).val( degIntDirection() );
+        }
+
+        function mod( a, n ) { return ( a % n + n ) % n;  }
+
         //  "this" is the "viewer.contentWindow".
 
         $(this.joystick1).on("update", function(){
@@ -287,22 +303,6 @@
         function isRunning(){
             return viewer.contentWindow.localPlayer.controller.isRunning && !viewer.contentWindow.localPlayer.controller.isWalking; // danger!
         }
-
-        function getDeltaAngle( current, target ) {
-            var a = mod( ( current - target ), 2 * Math.PI );
-            var b = mod( ( target - current ), 2 * Math.PI );
-            return a < b ? -a : b;
-        }
-
-        function degIntDirection(){
-            return parseInt( THREE.Math.radToDeg( viewer.contentWindow.localPlayer.controller.direction ) ) % 360;
-        }
-
-        function updateDirectionOutputValue(){
-            $(turnCtrlOutputSelector).val( degIntDirection() );
-        }
-
-        function mod( a, n ) { return ( a % n + n ) % n;  }
 
         //  "this" is the "viewer.contentWindow".
 
