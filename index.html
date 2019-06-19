@@ -336,7 +336,7 @@
 
         $(turnCtrlOutputSelector).val( degIntDirection() );
         $(turnCtrlOutputSelector).on("mousedown", function(){
-            this.value = THREE.Math.radToDeg( viewer.contentWindow.controller.direction ).toFixed(0); // string deg.
+            this.value = THREE.Math.radToDeg( viewer.contentWindow.localPlayer.controller.direction ).toFixed(0); // string deg.
         });
 
         $(turnCtrlOutputSelector).on("input", function(){
