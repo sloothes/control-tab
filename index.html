@@ -145,6 +145,8 @@
 
 <script>
 
+loadjs("/three/three.js", function(){
+
     $(viewer.contentWindow).on("load", function(){
 
         const viewer = document.getElementById( "viewer" );
@@ -399,6 +401,8 @@
         this.localPlayer.controller.movementSpeed = 0; // !important
 
     });
+
+});
 
 </script>
 
