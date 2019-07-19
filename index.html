@@ -145,264 +145,268 @@
 
 <script>
 
-(function(){
+$(viewer.contentWindow).on("load", function(){
 
-    $(viewer.contentWindow).on("load", function(){
+    const viewer = document.getElementById( "viewer" );
+    const joystick1 = viewer.contentWindow.joystick1;
 
-        const viewer = document.getElementById( "viewer" );
-        const joystick1 = viewer.contentWindow.joystick1;
+    var interval, msec = 250;
+    const Signal = signals.Signal;
 
-        var interval, msec = 250;
-        const Signal = signals.Signal;
+    const idleButtonSelector  = "#idle";
+    const walkButtonSelector  = "#walk";
+    const runButtonSelector   = "#run";
+    const jumpButtonSelector  = "#jump";
+    const frontButtonSelector = "#front";
+    const backButtonSelector  = "#back";
+    const leftButtonSelector  = "#left";
+    const rightButtonSelector = "#right";
+    const actionButtonSelector = ".action-btn";
 
-        const idleButtonSelector  = "#idle";
-        const walkButtonSelector  = "#walk";
-        const runButtonSelector   = "#run";
-        const jumpButtonSelector  = "#jump";
-        const frontButtonSelector = "#front";
-        const backButtonSelector  = "#back";
-        const leftButtonSelector  = "#left";
-        const rightButtonSelector = "#right";
-        const actionButtonSelector = ".action-btn";
+    const turnCtrlOutputSelector = "#turn-ctrl-output";
+    const turnCtrlSliderSelector = "#turn-ctrl-slider";
+    const actionControlsSelector = "#action-controls-panel";
 
-        const turnCtrlOutputSelector = "#turn-ctrl-output";
-        const turnCtrlSliderSelector = "#turn-ctrl-slider";
-        const actionControlsSelector = "#action-controls-panel";
+    const cameraOffsetOutputSelector = "#camera-offset-output";
+    const cameraOffsetSliderSelector = "#camera-offset-slider";
+    const cameraRadiusSliderSelector = "#camera-radius-slider";
+    const cameraRadiusOutputSelector = "#camera-radius-output";
 
-        const cameraOffsetOutputSelector = "#camera-offset-output";
-        const cameraOffsetSliderSelector = "#camera-offset-slider";
-        const cameraRadiusSliderSelector = "#camera-radius-slider";
-        const cameraRadiusOutputSelector = "#camera-radius-output";
+    const runButton   = document.getElementById("run");
+    const idleButton  = document.getElementById("idle");
+    const walkButton  = document.getElementById("walk");
+    const jumpButton  = document.getElementById("jump");
+    const backButton  = document.getElementById("back");
+    const leftButton  = document.getElementById("left");
+    const rightButton = document.getElementById("right");
+    const frontButton = document.getElementById("front");
 
-        const runButton   = document.getElementById("run");
-        const idleButton  = document.getElementById("idle");
-        const walkButton  = document.getElementById("walk");
-        const jumpButton  = document.getElementById("jump");
-        const backButton  = document.getElementById("back");
-        const leftButton  = document.getElementById("left");
-        const rightButton = document.getElementById("right");
-        const frontButton = document.getElementById("front");
+    viewer.contentWindow.directionSlider = document.getElementById("turn-ctrl-slider");
+    viewer.contentWindow.directionOutput = document.getElementById("turn-ctrl-output");
 
-        viewer.contentWindow.directionSlider = document.getElementById("turn-ctrl-slider");
-        viewer.contentWindow.directionOutput = document.getElementById("turn-ctrl-output");
+    var controlButtonClicked = new Signal();
 
-        var controlButtonClicked = new Signal();
+    function dispatchIdleAction(){
+        controlButtonClicked.dispatch("/action/idle");
+    }
 
-        function dispatchIdleAction(){
+    function dispatchWalkAction(){
+        if ( isWalking() ) 
             controlButtonClicked.dispatch("/action/idle");
+        else 
+            controlButtonClicked.dispatch("/action/walk");
+    }
+
+    function dispatchRunAction(){
+        if ( isRunning() ) 
+            controlButtonClicked.dispatch("/action/idle");
+        else 
+            controlButtonClicked.dispatch("/action/run");
+    }
+
+    function dispatchJumpAction(){
+        $(jumpButton).off("click");
+        controlButtonClicked.dispatch("/action/jump");
+    }
+
+    function radToDeg( rad ) {
+        return rad * 57.29577951308232;
+    }
+
+    function degToRad( deg ){
+        return deg * 0.017453292519943295;
+    }
+
+    controlButtonClicked.add(function(data){
+
+        if (window.socket){
+
+            $(runButton).off("click", dispatchRunAction);  
+            $(walkButton).off("click", dispatchWalkAction);  
+            $(idleButton).off("click", dispatchIdleAction);
+
+            socket.publish(localPlayerChannel, data, function(err){
+                if (err) console.error(err);
+                $(runButton).on("click", dispatchRunAction);
+                $(walkButton).on("click", dispatchWalkAction);
+                $(idleButton).on("click", dispatchIdleAction);
+            });
+
+        } else {
+
+            viewer.contentWindow.localPlayerHandler(data);
+
         }
-
-        function dispatchWalkAction(){
-            if ( isWalking() ) 
-                controlButtonClicked.dispatch("/action/idle");
-            else 
-                controlButtonClicked.dispatch("/action/walk");
-        }
-
-        function dispatchRunAction(){
-            if ( isRunning() ) 
-                controlButtonClicked.dispatch("/action/idle");
-            else 
-                controlButtonClicked.dispatch("/action/run");
-        }
-
-        function dispatchJumpAction(){
-            $(jumpButton).off("click");
-            controlButtonClicked.dispatch("/action/jump");
-        }
-
-        controlButtonClicked.add(function(data){
-
-            if (window.socket){
-
-                $(runButton).off("click", dispatchRunAction);  
-                $(walkButton).off("click", dispatchWalkAction);  
-                $(idleButton).off("click", dispatchIdleAction);
-
-                socket.publish(localPlayerChannel, data, function(err){
-                    if (err) console.error(err);
-                    $(runButton).on("click", dispatchRunAction);
-                    $(walkButton).on("click", dispatchWalkAction);
-                    $(idleButton).on("click", dispatchIdleAction);
-                });
-
-            } else {
-
-                viewer.contentWindow.localPlayerHandler(data);
-
-            }
-
-        });
-
-        viewer.contentWindow.localPlayer.controller.addEventListener("endJumping", function(){
-            $(jumpButton).on("click", dispatchJumpAction);
-        });
-
-    //  Action buttons.
-
-        $(runButton).on("click", dispatchRunAction);
-        $(walkButton).on("click", dispatchWalkAction);
-        $(idleButton).on("click", dispatchIdleAction);
-        $(jumpButton).on("click", dispatchJumpAction);
-
-    //  Direction buttons.
-
-        $(leftButton).on("click", function (){
-            controlButtonClicked.dispatch("/turn/left");
-        });
-
-        $(backButton).on("click", function (){
-            controlButtonClicked.dispatch("/turn/back");
-        });
-
-        $(rightButton).on("click", function (){
-            controlButtonClicked.dispatch("/turn/right");
-        });
-
-        $(frontButton).on("click", function (){
-            controlButtonClicked.dispatch("/turn/front");
-        });
-
-
-    //  Update direction output value.
-
-        function degIntDirection(){
-            return parseInt( THREE.Math.radToDeg( viewer.contentWindow.localPlayer.controller.direction ) ) % 360;
-        }
-
-        function getDeltaAngle( current, target ) {
-            var a = mod( ( current - target ), 2 * Math.PI );
-            var b = mod( ( target - current ), 2 * Math.PI );
-            return a < b ? -a : b;
-        }
-
-        function updateDirectionOutputValue(){
-            $(turnCtrlOutputSelector).val( degIntDirection() );
-        }
-
-        function mod( a, n ) { return ( a % n + n ) % n;  }
-
-        //  "this" is the "viewer.contentWindow".
-
-        $(this.joystick1).on("update", function(){
-            $(turnCtrlSliderSelector).val( degIntDirection() );
-            $(turnCtrlOutputSelector).val( degIntDirection() );
-        });
-
-        $(this.keyInputControls).on( "movekeyon movekeyoff movekeychange jumpkeypress", function(){
-            $(turnCtrlSliderSelector).val( degIntDirection() );
-            $(turnCtrlOutputSelector).val( degIntDirection() );
-        });
-
-
-    //  Update action buttons status.
-
-        function isWalking(){
-            return viewer.contentWindow.localPlayer.controller.isRunning && viewer.contentWindow.localPlayer.controller.isWalking; // danger!
-        }
-
-        function isRunning(){
-            return viewer.contentWindow.localPlayer.controller.isRunning && !viewer.contentWindow.localPlayer.controller.isWalking; // danger!
-        }
-
-        //  "this" is the "viewer.contentWindow".
-
-        $(this.joystick1).on( "active disactive", function () {
-            runButton.active = isRunning();
-            walkButton.active = isWalking();
-        });
-
-        $(this.keyInputControls).on( "movekeyon movekeyoff movekeychange jumpkeypress", function(){
-            runButton.active = isRunning();
-            walkButton.active = isWalking();
-        });
-
-        $(this.localPlayer.controller).on( "startIdling startRunning startJumping endJumping", function(){
-            runButton.active = isRunning();
-            walkButton.active = isWalking();
-        });
-
-
-    //  Avatar static turn slider.
-
-        $(turnCtrlSliderSelector).val( degIntDirection() );
-        $(turnCtrlSliderSelector).on("input", function(){
-            var angle = THREE.Math.degToRad( parseInt(this.value) ); // number rad.
-            viewer.contentWindow.localPlayer.controller.direction = angle;
-            $(turnCtrlOutputSelector).val( this.value );
-        });
-
-
-    //  Avatar turn output.
-
-        $(turnCtrlOutputSelector).val( degIntDirection() );
-        $(turnCtrlOutputSelector).on("mousedown", function(){
-            this.value = THREE.Math.radToDeg( viewer.contentWindow.localPlayer.controller.direction ).toFixed(0); // string deg.
-        });
-
-        $(turnCtrlOutputSelector).on("input", function(){
-            if ( isNaN( this.value ) ) return;
-            this.value %= 360;
-            var angle = THREE.Math.degToRad( parseInt(this.value) ); // number rad.
-            viewer.contentWindow.localPlayer.controller.direction = angle;
-            $(turnCtrlSliderSelector).val( mod(this.value, 360) );
-            function mod( a, n ) { return ( a % n + n ) % n; };
-        });
-
-
-    //  Camera vertical offset controls.
-
-        $(cameraOffsetSliderSelector).attr({ min: 0, max: 24, step: 1 });
-        $(cameraOffsetSliderSelector).val( viewer.contentWindow.cameraControls.offset.y );
-        $(cameraOffsetOutputSelector).val( viewer.contentWindow.cameraControls.offset.y );
-
-        $(cameraOffsetSliderSelector).on("input", function(){
-            viewer.contentWindow.cameraControls.offset.y = parseInt( this.value );
-            $(cameraOffsetOutputSelector).val( viewer.contentWindow.cameraControls.offset.y );
-        });
-
-        $(cameraOffsetOutputSelector).on("input", function(){
-            if ( !viewer.contentWindow.cameraControls ) return;
-            if ( isNaN( this.value ) ) return;
-            viewer.contentWindow.cameraControls.offset.y = parseFloat( this.value );
-            $(cameraOffsetSliderSelector).val( viewer.contentWindow.cameraControls.offset.y );
-        });
-
-
-    //  Camera radius controls.
-
-        $(cameraRadiusSliderSelector).attr({
-            min: viewer.contentWindow.cameraControls.minRadius,
-            max: viewer.contentWindow.cameraControls.maxRadius,
-            step: 1,
-        });
-
-        $(cameraRadiusSliderSelector).val( viewer.contentWindow.cameraControls.radius );
-        $(cameraRadiusOutputSelector).val( viewer.contentWindow.cameraControls.radius );
-
-        $(cameraRadiusSliderSelector).on("input", function(){
-            viewer.contentWindow.cameraControls.radius = this.value;
-            $(cameraRadiusOutputSelector).val( viewer.contentWindow.cameraControls.radius );
-        });
-
-        $(cameraRadiusOutputSelector).on("input", function(){
-            viewer.contentWindow.cameraControls.radius = this.value;
-            $(cameraRadiusSliderSelector).val( viewer.contentWindow.cameraControls.radius );
-        });
-
-        $(viewer.contentWindow).on( "wheel", function onMouseWheel(e) {
-            if ( !viewer.contentWindow.cameraControls ) return;
-            $(cameraRadiusSliderSelector).val( viewer.contentWindow.cameraControls.radius );
-            $(cameraRadiusOutputSelector).val( viewer.contentWindow.cameraControls.radius );
-        });
-
-
-        this.localPlayer.outfit.refresh();             // !important
-        this.localPlayer.controller.movementSpeed = 0; // !important
 
     });
 
-})();
+    viewer.contentWindow.localPlayer.controller.addEventListener("endJumping", function(){
+        $(jumpButton).on("click", dispatchJumpAction);
+    });
+
+//  Action buttons.
+
+    $(runButton).on("click", dispatchRunAction);
+    $(walkButton).on("click", dispatchWalkAction);
+    $(idleButton).on("click", dispatchIdleAction);
+    $(jumpButton).on("click", dispatchJumpAction);
+
+//  Direction buttons.
+
+    $(leftButton).on("click", function (){
+        controlButtonClicked.dispatch("/turn/left");
+    });
+
+    $(backButton).on("click", function (){
+        controlButtonClicked.dispatch("/turn/back");
+    });
+
+    $(rightButton).on("click", function (){
+        controlButtonClicked.dispatch("/turn/right");
+    });
+
+    $(frontButton).on("click", function (){
+        controlButtonClicked.dispatch("/turn/front");
+    });
+
+
+//  Update direction output value.
+
+    function degIntDirection(){
+        return parseInt( radToDeg( viewer.contentWindow.localPlayer.controller.direction ) ) % 360;
+    }
+
+    function getDeltaAngle( current, target ) {
+        var a = mod( ( current - target ), 2 * Math.PI );
+        var b = mod( ( target - current ), 2 * Math.PI );
+        return a < b ? -a : b;
+    }
+
+    function updateDirectionOutputValue(){
+        $(turnCtrlOutputSelector).val( degIntDirection() );
+    }
+
+    function mod( a, n ) { return ( a % n + n ) % n;  }
+
+    //  "this" is the "viewer.contentWindow".
+
+    $(this.joystick1).on("update", function(){
+        $(turnCtrlSliderSelector).val( degIntDirection() );
+        $(turnCtrlOutputSelector).val( degIntDirection() );
+    });
+
+    $(this.keyInputControls).on( "movekeyon movekeyoff movekeychange jumpkeypress", function(){
+        $(turnCtrlSliderSelector).val( degIntDirection() );
+        $(turnCtrlOutputSelector).val( degIntDirection() );
+    });
+
+
+//  Update action buttons status.
+
+    function isWalking(){
+        return viewer.contentWindow.localPlayer.controller.isRunning && viewer.contentWindow.localPlayer.controller.isWalking; // danger!
+    }
+
+    function isRunning(){
+        return viewer.contentWindow.localPlayer.controller.isRunning && !viewer.contentWindow.localPlayer.controller.isWalking; // danger!
+    }
+
+    //  "this" is the "viewer.contentWindow".
+
+    $(this.joystick1).on( "active disactive", function () {
+        runButton.active = isRunning();
+        walkButton.active = isWalking();
+    });
+
+    $(this.keyInputControls).on( "movekeyon movekeyoff movekeychange jumpkeypress", function(){
+        runButton.active = isRunning();
+        walkButton.active = isWalking();
+    });
+
+    $(this.localPlayer.controller).on( "startIdling startRunning startJumping endJumping", function(){
+        runButton.active = isRunning();
+        walkButton.active = isWalking();
+    });
+
+
+//  Avatar static turn slider.
+
+    $(turnCtrlSliderSelector).val( degIntDirection() );
+    $(turnCtrlSliderSelector).on("input", function(){
+        var angle = degToRad( parseInt(this.value) ); // number rad.
+        viewer.contentWindow.localPlayer.controller.direction = angle;
+        $(turnCtrlOutputSelector).val( this.value );
+    });
+
+
+//  Avatar turn output.
+
+    $(turnCtrlOutputSelector).val( degIntDirection() );
+    $(turnCtrlOutputSelector).on("mousedown", function(){
+        this.value = radToDeg( viewer.contentWindow.localPlayer.controller.direction ).toFixed(0); // string deg.
+    });
+
+    $(turnCtrlOutputSelector).on("input", function(){
+        if ( isNaN( this.value ) ) return;
+        this.value %= 360;
+        var angle = degToRad( parseInt(this.value) ); // number rad.
+        viewer.contentWindow.localPlayer.controller.direction = angle;
+        $(turnCtrlSliderSelector).val( mod(this.value, 360) );
+        function mod( a, n ) { return ( a % n + n ) % n; };
+    });
+
+
+//  Camera vertical offset controls.
+
+    $(cameraOffsetSliderSelector).attr({ min: 0, max: 24, step: 1 });
+    $(cameraOffsetSliderSelector).val( viewer.contentWindow.cameraControls.offset.y );
+    $(cameraOffsetOutputSelector).val( viewer.contentWindow.cameraControls.offset.y );
+
+    $(cameraOffsetSliderSelector).on("input", function(){
+        viewer.contentWindow.cameraControls.offset.y = parseInt( this.value );
+        $(cameraOffsetOutputSelector).val( viewer.contentWindow.cameraControls.offset.y );
+    });
+
+    $(cameraOffsetOutputSelector).on("input", function(){
+        if ( !viewer.contentWindow.cameraControls ) return;
+        if ( isNaN( this.value ) ) return;
+        viewer.contentWindow.cameraControls.offset.y = parseFloat( this.value );
+        $(cameraOffsetSliderSelector).val( viewer.contentWindow.cameraControls.offset.y );
+    });
+
+
+//  Camera radius controls.
+
+    $(cameraRadiusSliderSelector).attr({
+        min: viewer.contentWindow.cameraControls.minRadius,
+        max: viewer.contentWindow.cameraControls.maxRadius,
+        step: 1,
+    });
+
+    $(cameraRadiusSliderSelector).val( viewer.contentWindow.cameraControls.radius );
+    $(cameraRadiusOutputSelector).val( viewer.contentWindow.cameraControls.radius );
+
+    $(cameraRadiusSliderSelector).on("input", function(){
+        viewer.contentWindow.cameraControls.radius = this.value;
+        $(cameraRadiusOutputSelector).val( viewer.contentWindow.cameraControls.radius );
+    });
+
+    $(cameraRadiusOutputSelector).on("input", function(){
+        viewer.contentWindow.cameraControls.radius = this.value;
+        $(cameraRadiusSliderSelector).val( viewer.contentWindow.cameraControls.radius );
+    });
+
+    $(viewer.contentWindow).on( "wheel", function onMouseWheel(e) {
+        if ( !viewer.contentWindow.cameraControls ) return;
+        $(cameraRadiusSliderSelector).val( viewer.contentWindow.cameraControls.radius );
+        $(cameraRadiusOutputSelector).val( viewer.contentWindow.cameraControls.radius );
+    });
+
+
+    this.localPlayer.outfit.refresh();             // !important
+    this.localPlayer.controller.movementSpeed = 0; // !important
+
+});
 
 </script>
 
