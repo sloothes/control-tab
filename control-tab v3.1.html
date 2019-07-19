@@ -1,0 +1,674 @@
+
+<script>
+
+(function(){
+    var component_ID = {
+        type: "tab",
+        version: "3.1",
+        kind: "component",
+        name: "control-tab.html",
+        description: "local player controls.",
+    };
+})();
+
+</script>
+
+
+<div id="actions-holder" class="side-holder">
+
+    <style>
+
+        .action-btn { 
+            width:21%; 
+            padding:0.5rem 0; 
+        }
+
+        .action-btn + .action-btn { 
+            margin-left:0.5rem; 
+        }
+
+        .turn-cw, .turn-ccw { 
+            width:45%; 
+        }
+
+        .turn-cw + .turn-ccw { 
+            margin-left:0.5rem; 
+        }
+
+        .action-controls-output {
+            width:50px; outline:none;
+            color:#ffffff; border:none; 
+            background-color:rgba(255,255,255,0);
+            font-weight:bold; font-size:1em; 
+            text-align:right; font-family:Arial;
+        }
+
+        #turn-ctrl-slider, 
+        #camera-offset-slider, 
+        #camera-radius-slider {
+            display:inline; 
+            width:80%; 
+            vertical-align:-5px;
+        }
+
+        label { margin-bottom: 0px; }
+
+        .step-output { width:42px; }
+
+        h4.helpers-header,
+        .helpers-header h4 {
+            cursor:pointer; 
+        }
+
+    </style>
+
+    <!-- ACTION CONTROLS -->
+
+    <h4 class="helpers-header action-controls-header">Action Controls:</h4>
+
+    <div id="action-controls-panel">
+
+        <div class="slider-row" style="width:100%;display:inline-block;text-align:center;margin-bottom:10px;">
+            <div class="btn btn-danger btn-white-outline action-btn animation-control" id="idle">idle</div>
+            <div class="btn btn-success btn-white-outline action-btn animation-control" id="walk">walk</div>
+            <div class="btn btn-success btn-white-outline action-btn animation-control" id="run">run</div>
+            <div class="btn btn-info btn-white-outline action-btn animation-control" id="jump">jump</div>
+        </div>
+
+        <h4 class="helpers-header direction-controls-header">Direction Controls:</h4>
+
+        <div class="slider-row" style="width:100%;display:inline-block;text-align:center;margin-bottom:10px;">
+            <div class="btn btn-primary btn-white-outline action-btn direction-control" id="left">left</div>
+            <div class="btn btn-primary btn-white-outline action-btn direction-control" id="front">front</div>
+            <div class="btn btn-primary btn-white-outline action-btn direction-control" id="back">back</div>
+            <div class="btn btn-primary btn-white-outline action-btn direction-control" id="right">right</div>
+        </div>
+
+    </div>
+
+    <!-- CAMERA CONTROLS -->
+
+    <h4 class="helpers-header camera-controls-header">Camera Controls:</h4>
+
+    <div id="camera-controls-panel" class="slider-row" style="width:100%;margin-bottom:10px;display:inline-block">
+        <li>
+            <label title="Camera vertial offset">Vertical offset:</label>
+            <input type="range" id="camera-offset-slider" min="0" max="25" value="12" step="1">
+            <input type="number" id="camera-offset-output" class="action-controls-output" step="1">
+        </li>
+        <li>
+            <label title="Camera radius">Camera distance:</label>
+            <input type="range" id="camera-radius-slider" min="6" max="64" value="29" step="1">
+            <input type="number" id="camera-radius-output" class="action-controls-output" step="1">
+        </li>
+        <li>
+            <label title="hold pressed to turn">Avatar direction:</label>
+            <input type="range" id="turn-ctrl-slider" min="0" max="360" value="180" step="1">
+            <input type="number" id="turn-ctrl-output" class="action-controls-output" value="180" step="1">
+        </li>
+
+    </div>
+
+</div>
+
+<script>
+
+(function(){
+
+    const actionHeaderSelector = ".action-controls-header";
+    const actionControlsSelector = "#action-controls-panel"
+
+    $(actionHeaderSelector).on("dblclick", function(){
+        var selector = actionControlsSelector;
+        if ( $(selector).css("display") == "none" ) {
+            $(selector).slideDown();
+        } else {
+            $(selector).slideUp();
+        }
+    });
+
+    const cameraHeaderSelector = ".camera-controls-header";
+    const cameraControlsSelector = "#camera-controls-panel";
+
+    $(cameraHeaderSelector).on("dblclick", function(){
+        var selector = cameraControlsSelector;
+        if ( $(selector).css("display") == "none" ) {
+            $(selector).slideDown();
+        } else {
+            $(selector).slideUp();
+        }
+    });
+
+})();
+
+</script>
+
+<script>
+
+    $(viewer.contentWindow).on("load", function(){
+
+        const viewer = document.getElementById( "viewer" );
+        const joystick1 = viewer.contentWindow.joystick1;
+
+        var interval, msec = 250;
+        const Signal = signals.Signal;
+
+        const idleButtonSelector  = "#idle";
+        const walkButtonSelector  = "#walk";
+        const runButtonSelector   = "#run";
+        const jumpButtonSelector  = "#jump";
+        const frontButtonSelector = "#front";
+        const backButtonSelector  = "#back";
+        const leftButtonSelector  = "#left";
+        const rightButtonSelector = "#right";
+        const actionButtonSelector = ".action-btn";
+
+        const turnCtrlOutputSelector = "#turn-ctrl-output";
+        const turnCtrlSliderSelector = "#turn-ctrl-slider";
+        const actionControlsSelector = "#action-controls-panel";
+
+        const cameraOffsetOutputSelector = "#camera-offset-output";
+        const cameraOffsetSliderSelector = "#camera-offset-slider";
+        const cameraRadiusSliderSelector = "#camera-radius-slider";
+        const cameraRadiusOutputSelector = "#camera-radius-output";
+
+        const runButton   = document.getElementById("run");
+        const idleButton  = document.getElementById("idle");
+        const walkButton  = document.getElementById("walk");
+        const jumpButton  = document.getElementById("jump");
+        const backButton  = document.getElementById("back");
+        const leftButton  = document.getElementById("left");
+        const rightButton = document.getElementById("right");
+        const frontButton = document.getElementById("front");
+
+        viewer.contentWindow.directionSlider = document.getElementById("turn-ctrl-slider");
+        viewer.contentWindow.directionOutput = document.getElementById("turn-ctrl-output");
+
+        var controlButtonClicked = new Signal();
+
+        function dispatchIdleAction(){
+            controlButtonClicked.dispatch("/action/idle");
+        }
+
+        function dispatchWalkAction(){
+            if ( isWalking() ) 
+                controlButtonClicked.dispatch("/action/idle");
+            else 
+                controlButtonClicked.dispatch("/action/walk");
+        }
+
+        function dispatchRunAction(){
+            if ( isRunning() ) 
+                controlButtonClicked.dispatch("/action/idle");
+            else 
+                controlButtonClicked.dispatch("/action/run");
+        }
+
+        function dispatchJumpAction(){
+            $(jumpButton).off("click");
+            controlButtonClicked.dispatch("/action/jump");
+        }
+
+        controlButtonClicked.add(function(data){
+
+            if (window.socket){
+
+                $(runButton).off("click", dispatchRunAction);  
+                $(walkButton).off("click", dispatchWalkAction);  
+                $(idleButton).off("click", dispatchIdleAction);
+
+                socket.publish(localPlayerChannel, data, function(err){
+                    if (err) console.error(err);
+                    $(runButton).on("click", dispatchRunAction);
+                    $(walkButton).on("click", dispatchWalkAction);
+                    $(idleButton).on("click", dispatchIdleAction);
+                });
+
+            } else {
+
+                viewer.contentWindow.localPlayerHandler(data);
+
+            }
+
+        });
+
+        viewer.contentWindow.localPlayer.controller.addEventListener("endJumping", function(){
+            $(jumpButton).on("click", dispatchJumpAction);
+        });
+
+    //  Action buttons.
+
+        $(runButton).on("click", dispatchRunAction);
+        $(walkButton).on("click", dispatchWalkAction);
+        $(idleButton).on("click", dispatchIdleAction);
+        $(jumpButton).on("click", dispatchJumpAction);
+
+    //  Direction buttons.
+
+        $(leftButton).on("click", function (){
+            controlButtonClicked.dispatch("/turn/left");
+        });
+
+        $(backButton).on("click", function (){
+            controlButtonClicked.dispatch("/turn/back");
+        });
+
+        $(rightButton).on("click", function (){
+            controlButtonClicked.dispatch("/turn/right");
+        });
+
+        $(frontButton).on("click", function (){
+            controlButtonClicked.dispatch("/turn/front");
+        });
+
+
+    //  Update direction output value.
+
+        function degIntDirection(){
+            return parseInt( THREE.Math.radToDeg( viewer.contentWindow.localPlayer.controller.direction ) ) % 360;
+        }
+
+        function getDeltaAngle( current, target ) {
+            var a = mod( ( current - target ), 2 * Math.PI );
+            var b = mod( ( target - current ), 2 * Math.PI );
+            return a < b ? -a : b;
+        }
+
+        function updateDirectionOutputValue(){
+            $(turnCtrlOutputSelector).val( degIntDirection() );
+        }
+
+        function mod( a, n ) { return ( a % n + n ) % n;  }
+
+        //  "this" is the "viewer.contentWindow".
+
+        $(this.joystick1).on("update", function(){
+            $(turnCtrlSliderSelector).val( degIntDirection() );
+            $(turnCtrlOutputSelector).val( degIntDirection() );
+        });
+
+        $(this.keyInputControls).on( "movekeyon movekeyoff movekeychange jumpkeypress", function(){
+            $(turnCtrlSliderSelector).val( degIntDirection() );
+            $(turnCtrlOutputSelector).val( degIntDirection() );
+        });
+
+
+    //  Update action buttons status.
+
+        function isWalking(){
+            return viewer.contentWindow.localPlayer.controller.isRunning && viewer.contentWindow.localPlayer.controller.isWalking; // danger!
+        }
+
+        function isRunning(){
+            return viewer.contentWindow.localPlayer.controller.isRunning && !viewer.contentWindow.localPlayer.controller.isWalking; // danger!
+        }
+
+        //  "this" is the "viewer.contentWindow".
+
+        $(this.joystick1).on( "active disactive", function () {
+            runButton.active = isRunning();
+            walkButton.active = isWalking();
+        });
+
+        $(this.keyInputControls).on( "movekeyon movekeyoff movekeychange jumpkeypress", function(){
+            runButton.active = isRunning();
+            walkButton.active = isWalking();
+        });
+
+        $(this.localPlayer.controller).on( "startIdling startRunning startJumping endJumping", function(){
+            runButton.active = isRunning();
+            walkButton.active = isWalking();
+        });
+
+
+    //  Avatar static turn slider.
+
+        $(turnCtrlSliderSelector).val( degIntDirection() );
+        $(turnCtrlSliderSelector).on("input", function(){
+            var angle = THREE.Math.degToRad( parseInt(this.value) ); // number rad.
+            viewer.contentWindow.localPlayer.controller.direction = angle;
+            $(turnCtrlOutputSelector).val( this.value );
+        });
+
+
+    //  Avatar turn output.
+
+        $(turnCtrlOutputSelector).val( degIntDirection() );
+        $(turnCtrlOutputSelector).on("mousedown", function(){
+            this.value = THREE.Math.radToDeg( viewer.contentWindow.localPlayer.controller.direction ).toFixed(0); // string deg.
+        });
+
+        $(turnCtrlOutputSelector).on("input", function(){
+            if ( isNaN( this.value ) ) return;
+            this.value %= 360;
+            var angle = THREE.Math.degToRad( parseInt(this.value) ); // number rad.
+            viewer.contentWindow.localPlayer.controller.direction = angle;
+            $(turnCtrlSliderSelector).val( mod(this.value, 360) );
+            function mod( a, n ) { return ( a % n + n ) % n; };
+        });
+
+
+    //  Camera vertical offset controls.
+
+        $(cameraOffsetSliderSelector).attr({ min: 0, max: 24, step: 1 });
+        $(cameraOffsetSliderSelector).val( viewer.contentWindow.cameraControls.offset.y );
+        $(cameraOffsetOutputSelector).val( viewer.contentWindow.cameraControls.offset.y );
+
+        $(cameraOffsetSliderSelector).on("input", function(){
+            viewer.contentWindow.cameraControls.offset.y = parseInt( this.value );
+            $(cameraOffsetOutputSelector).val( viewer.contentWindow.cameraControls.offset.y );
+        });
+
+        $(cameraOffsetOutputSelector).on("input", function(){
+            if ( !viewer.contentWindow.cameraControls ) return;
+            if ( isNaN( this.value ) ) return;
+            viewer.contentWindow.cameraControls.offset.y = parseFloat( this.value );
+            $(cameraOffsetSliderSelector).val( viewer.contentWindow.cameraControls.offset.y );
+        });
+
+
+    //  Camera radius controls.
+
+        $(cameraRadiusSliderSelector).attr({
+            min: viewer.contentWindow.cameraControls.minRadius,
+            max: viewer.contentWindow.cameraControls.maxRadius,
+            step: 1,
+        });
+
+        $(cameraRadiusSliderSelector).val( viewer.contentWindow.cameraControls.radius );
+        $(cameraRadiusOutputSelector).val( viewer.contentWindow.cameraControls.radius );
+
+        $(cameraRadiusSliderSelector).on("input", function(){
+            viewer.contentWindow.cameraControls.radius = this.value;
+            $(cameraRadiusOutputSelector).val( viewer.contentWindow.cameraControls.radius );
+        });
+
+        $(cameraRadiusOutputSelector).on("input", function(){
+            viewer.contentWindow.cameraControls.radius = this.value;
+            $(cameraRadiusSliderSelector).val( viewer.contentWindow.cameraControls.radius );
+        });
+
+        $(viewer.contentWindow).on( "wheel", function onMouseWheel(e) {
+            if ( !viewer.contentWindow.cameraControls ) return;
+            $(cameraRadiusSliderSelector).val( viewer.contentWindow.cameraControls.radius );
+            $(cameraRadiusOutputSelector).val( viewer.contentWindow.cameraControls.radius );
+        });
+
+
+        this.localPlayer.outfit.refresh();             // !important
+        this.localPlayer.controller.movementSpeed = 0; // !important
+
+    });
+
+</script>
+
+
+        <!-- SNAPSHOT BUTTON -->
+
+
+<div id="snapshot-holder" class="side-holder">
+
+    <style>
+
+        #crop-button {
+            position:absolute;
+            bottom: 0px;
+            right: 0px;
+        }
+
+        #exit-button {
+            position:absolute;
+            bottom: 0px;
+            left: 0px;
+        }
+        
+        .bootbox-body pre {
+            padding:0px;
+            background:none;
+            border:none;
+            border-radius:unset;
+            max-width:300px;
+            max-height:100px;
+        }
+
+    </style>
+
+    <h4 class="helpers-header">Snapshots:</h4>
+    <div id="snapshot-crop-button" class="form-control btn btn-info btn-white-outline gradient-btn">Take snapshot</div>
+
+</div>
+
+<hr/>
+
+<script>
+
+    $("#snapshot-crop-button").on("click", function (){
+        var viewer = document.getElementById( "viewer" );
+        viewer.contentWindow.sceneHandler("/snapshot/crop");
+    });
+
+</script>
+
+
+        <!-- BACKGROUND COLOR -->
+
+
+<div id="scene-background-holder" class="side-holder">
+
+    <style>
+
+        #background-colorpicker > div.sp-container,
+        #background-colorpicker > div.sp-container > div.sp-picker-container { background:none; border:none; width:100% }
+        #background-colorpicker > div.sp-container > div.sp-picker-container > div.sp-input-container  { width:70px; }
+        #background-colorpicker > div.sp-container > div.sp-picker-container > div.sp-input-container > input.sp-input { color:#fff }
+
+        @media (max-device-width: 480px){
+            .sp-hue { left: 85%; }
+        }
+
+    </style>
+
+    <div id="background-colorpicker">
+
+        <h4 class="helpers-header background-color-header">Background color:</h4>
+
+        <input type="hidden" id="sp-scene-background">
+
+    </div>
+
+</div>
+
+<hr/>
+
+<script>
+
+(function(){
+
+    const backgroundHeaderSelector = ".background-color-header";
+    const spectrumContainerSelector = "#background-colorpicker .sp-container";
+
+    $(backgroundHeaderSelector).on("dblclick", function(){
+        var selector = spectrumContainerSelector;
+        if ( $(selector).css("display") == "none" ) {
+            $(selector).slideDown();
+        } else {
+            $(selector).slideUp();
+        }
+    });
+
+})();
+
+(function(){
+
+//  Spectrum Colorpickers.js
+
+    const SceneContainerSelector = "#scene-container";
+    const spectrumBackgroundSelector = "#sp-scene-background";
+
+    var viewer = document.getElementById( "viewer" );
+
+    $(spectrumBackgroundSelector).spectrum({
+        preferredFormat: "hex",
+        color: "#000000",
+        flat: true,
+        showInput: true,
+        showInitial: true,
+        showButtons: false,
+        allowEmpty: false,
+        move: function(color) {
+            if ( !viewer.contentWindow.renderer ) return;
+            var renderer = viewer.contentWindow.renderer;
+            var hex = color.toString("hex").replace(/#/, "0x");
+            renderer.setClearColor( renderer.getClearColor().setHex(hex) );
+        }
+    });
+
+    $(spectrumBackgroundSelector).on("dragstop.spectrum", function(e, color) {
+        if ( !viewer.contentWindow.renderer) {
+            $(this).spectrum( "set", "#000000" );
+            return;
+        }
+    });
+
+//  Colorpicker update.
+
+    (function (){
+        var renderer = viewer.contentWindow.renderer;
+        if ( renderer && renderer.getClearColor() ) {
+            var hexString = "#" + renderer.getClearColor().getHexString();
+            $(spectrumBackgroundSelector).spectrum( "set", hexString );
+        }
+    })();
+
+})();
+
+</script>
+
+
+        <!-- DISPLAY HELPERS -->
+
+
+<style>
+
+    .helper a, 
+    .display-helper a { 
+        color:#fff; 
+        font: bold 16px Arial;
+        cursor: pointer;
+        line-height: 1.5em;
+        text-decoration: none;
+    }
+
+    .helper:focus { outline:none; }
+    .helpers a:focus { outline:none; }
+    .helpers-header h4 { cursor:pointer; }
+
+</style>
+
+<div class="helpers-header display-header">
+    <h4>Display helpers:</h4>
+</div>
+
+<div id="display-helpers">
+
+    <li id="ground" class="display-helper"><a>Show ground</a></li>
+    <li id="ground-helper" class="display-helper"><a>Show ground helper</a></li>
+    <li id="origin-helper" class="display-helper"><a>Show origins helper</a></li>
+    <li id="axis-helper" class="display-helper"><a>Show axis helper</a></li>
+    <li id="player-helper" class="display-helper"><a>Show Player helper</a></li>
+    <li id="joysticks-helper" class="display-helper"><a>Hide joysticks</a></li>
+
+</div>
+
+<hr/>
+
+<script>
+
+(function(){
+
+    const displayHeaderSelector = ".display-header";
+    const helpersHeaderSelector = ".helpers-header";
+    const displayHelpersSelector = "#display-helpers";
+
+    $(displayHeaderSelector).on("dblclick", function(){
+        var item = $(displayHelpersSelector).get(0);
+        if ( $(item).css("display") == "none" ) {
+            $(item).slideDown();
+        } else {
+            $(item).slideUp();
+        }
+    });
+
+//  Using Signals.
+
+    var Signal = signals.Signal;
+    var displayHelperClicked = new Signal();
+    var JoystickHelperClicked = new Signal();
+
+//  Signal handlers.
+
+    displayHelperClicked.add( function(element){
+
+        element.target.visible = !element.target.visible;
+
+        if (element.target.visible)
+            var text = $(element).find("a").text().replace("Show", "Hide");
+        else
+            var text = $(element).find("a").text().replace("Hide", "Show");
+
+        $(element).find("a").text( text );
+
+    });
+
+    JoystickHelperClicked.add( function(element){
+
+        element.value = !element.value;
+
+        if ( element.value ) {
+            element.target.removeClass("hidden");
+            var text = $(element).find("a").text().replace("Show", "Hide");
+        } else {
+            element.target.addClass("hidden");
+            var text = $(element).find("a").text().replace("Hide", "Show");
+        }
+
+        $(element).find("a").text( text );
+
+    });
+
+    var viewer = document.getElementById( "viewer" );
+
+    $(viewer.contentWindow).on("load", function(){
+
+        //  "this" is the "viewer.contentWindow".
+
+    //  Define display helpers targets.
+        document.getElementById("ground").target = this.ground;
+        document.getElementById("axis-helper").target = this.axisCustomHelper;
+        document.getElementById("ground-helper").target = this.groundHelper;
+        document.getElementById("origin-helper").target = this.axisOriginHelper;
+        document.getElementById("player-helper").target = this.localPlayer.holder;
+
+    //  Dispatch signal events.
+
+        $("#ground, #ground-helper, #origin-helper, #axis-helper, #player-helper").on("click", function(){
+            displayHelperClicked.dispatch( this );
+        });
+
+    //  Joystic display helper.
+
+        document.getElementById("joysticks-helper").value = true;
+        document.getElementById("joysticks-helper").target = $(this.document).find(".joystick-controls");
+
+    //  Dispatch signal events.
+
+        $("#joysticks-helper").on("click", function(){
+            JoystickHelperClicked.dispatch( this );
+        });
+
+    });
+
+})();
+
+</script>
+
