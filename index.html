@@ -13,7 +13,6 @@
 
 </script>
 
-
 <div id="actions-holder" class="side-holder">
 
     <style>
@@ -145,6 +144,14 @@
 
 <script>
 
+function radToDeg( rad ) {
+    return rad * 57.29577951308232;
+}
+
+function degToRad( deg ){
+    return deg * 0.017453292519943295;
+}
+
 $(viewer.contentWindow).on("load", function(){
 
     const viewer = document.getElementById( "viewer" );
@@ -207,14 +214,6 @@ $(viewer.contentWindow).on("load", function(){
     function dispatchJumpAction(){
         $(jumpButton).off("click");
         controlButtonClicked.dispatch("/action/jump");
-    }
-
-    function radToDeg( rad ) {
-        return rad * 57.29577951308232;
-    }
-
-    function degToRad( deg ){
-        return deg * 0.017453292519943295;
     }
 
     controlButtonClicked.add(function(data){
